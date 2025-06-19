@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/image_provider.dart';
 import '../services/api_service.dart';
 import 'photo_gallery_screen.dart';
+import 'package:image_picker/image_picker.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -328,19 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: const Text('Take a new photo'),
               onTap: () async {
                 Navigator.pop(context);
-                final imageProvider = context.read<ImageProviderService>();
-                await imageProvider.pickImageFromCamera();
-                if (imageProvider.selectedImage != null) {
-                  await imageProvider.addUploadedPhoto(imageProvider.selectedImage!);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Photo added to gallery!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                }
+                await _handleImageUpload(ImageSource.camera);
               },
             ),
             ListTile(
@@ -349,22 +338,218 @@ class _HomeScreenState extends State<HomeScreen> {
               subtitle: const Text('Choose from gallery'),
               onTap: () async {
                 Navigator.pop(context);
-                final imageProvider = context.read<ImageProviderService>();
-                await imageProvider.pickImageFromGallery();
-                if (imageProvider.selectedImage != null) {
-                  await imageProvider.addUploadedPhoto(imageProvider.selectedImage!);
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Photo added to gallery!'),
-                        backgroundColor: Colors.green,
-                      ),
-                    );
-                  }
-                }
+                await _handleImageUpload(ImageSource.gallery);
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _handleImageUpload(ImageSource source) async {
+    final imageProvider = context.read<ImageProviderService>();
+    
+    try {
+      // Pick image based on source
+      if (source == ImageSource.camera) {
+        await imageProvider.pickImageFromCamera();
+      } else {
+        await imageProvider.pickImageFromGallery();
+      }
+
+      // Check if image was selected
+      if (imageProvider.selectedImage != null) {
+        // Show progress dialog and handle upload
+        if (mounted) {
+          final success = await _showUploadProgressDialog(imageProvider);
+          
+          if (success && mounted) {
+            _showSuccessDialog();
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<bool> _showUploadProgressDialog(ImageProviderService imageProvider) async {
+    bool? result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => UploadProgressDialog(
+        imageProvider: imageProvider,
+      ),
+    );
+    
+    return result ?? false;
+  }
+
+  void _showSuccessDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 50,
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Photo Uploaded Successfully!',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Your photo has been added to the gallery',
+              style: TextStyle(color: Colors.grey),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('OK'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class UploadProgressDialog extends StatefulWidget {
+  final ImageProviderService imageProvider;
+
+  const UploadProgressDialog({
+    super.key,
+    required this.imageProvider,
+  });
+
+  @override
+  State<UploadProgressDialog> createState() => _UploadProgressDialogState();
+}
+
+class _UploadProgressDialogState extends State<UploadProgressDialog> {
+  bool _uploadStarted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startUpload();
+  }
+
+  Future<void> _startUpload() async {
+    if (_uploadStarted) return;
+    _uploadStarted = true;
+
+    if (widget.imageProvider.selectedImage != null) {
+      final success = await widget.imageProvider.addUploadedPhoto(
+        widget.imageProvider.selectedImage!,
+      );
+      
+      if (mounted) {
+        Navigator.of(context).pop(success);
+      }
+    } else {
+      if (mounted) {
+        Navigator.of(context).pop(false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return PopScope(
+      canPop: false,
+      child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        content: Consumer<ImageProviderService>(
+          builder: (context, imageProvider, child) {
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(
+                  Icons.cloud_upload,
+                  size: 50,
+                  color: Colors.blue,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Uploading Photo...',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Analyzing image and adding to gallery',
+                  style: TextStyle(color: Colors.grey),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 24),
+                LinearProgressIndicator(
+                  value: imageProvider.uploadProgress,
+                  backgroundColor: Colors.grey[300],
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    Theme.of(context).primaryColor,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${(imageProvider.uploadProgress * 100).toInt()}%',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                  ),
+                ),
+                if (imageProvider.error != null) ...[
+                  const SizedBox(height: 16),
+                  Text(
+                    imageProvider.error!,
+                    style: const TextStyle(
+                      color: Colors.red,
+                      fontSize: 12,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ],
+            );
+          },
         ),
       ),
     );

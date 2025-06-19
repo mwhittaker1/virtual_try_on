@@ -11,10 +11,12 @@ class ImageProviderService extends ChangeNotifier {
   ImageProviderService({required this.apiService});
 
   List<SelfieModel> _testSelfies = [];
-  List<SelfieModel> _uploadedSelfies = []; 
+  List<SelfieModel> _uploadedSelfies = [];
   SelfieModel? _selectedTestSelfie;
   File? _selectedImage;
   bool _isLoading = false;
+  bool _isUploading = false;
+  double _uploadProgress = 0.0;
   String? _error;
   Map<String, dynamic>? _analysisResult;
 
@@ -25,6 +27,8 @@ class ImageProviderService extends ChangeNotifier {
   SelfieModel? get selectedTestSelfie => _selectedTestSelfie;
   File? get selectedImage => _selectedImage;
   bool get isLoading => _isLoading;
+  bool get isUploading => _isUploading;
+  double get uploadProgress => _uploadProgress;
   String? get error => _error;
   Map<String, dynamic>? get analysisResult => _analysisResult;
 
@@ -93,7 +97,54 @@ class ImageProviderService extends ChangeNotifier {
     }
   }
 
-  // Upload and analyze selected image
+  // Upload and analyze selected image with progress tracking
+  Future<bool> addUploadedPhoto(File imageFile) async {
+    _setUploading(true);
+    _setUploadProgress(0.0);
+    _clearError();
+
+    try {
+      // Simulate progress steps
+      _setUploadProgress(0.2);
+      await Future.delayed(const Duration(milliseconds: 300));
+
+      _setUploadProgress(0.5);
+      final analysis = await apiService.analyzeImage(imageFile);
+      
+      _setUploadProgress(0.8);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      final uploadedSelfie = SelfieModel(
+        id: 'uploaded_${DateTime.now().millisecondsSinceEpoch}',
+        name: 'My Upload - ${_getDifficultyFromAnalysis(analysis)}',
+        difficulty: _getDifficultyFromAnalysis(analysis),
+        poseType: analysis['analysis']['pose_type'] ?? 'unknown',
+        lightingQuality: analysis['analysis']['lighting_quality'] ?? 'unknown',
+        backgroundComplexity: analysis['analysis']['background_complexity'] ?? 'unknown',
+        bodyType: 'user_upload',
+        description: 'User uploaded photo - ${analysis['analysis']['image_quality'] ?? 'good'} quality',
+      );
+
+      _uploadedSelfies.add(uploadedSelfie);
+      _selectedTestSelfie = uploadedSelfie;
+      _selectedImage = imageFile;
+      _analysisResult = analysis;
+
+      _setUploadProgress(1.0);
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      notifyListeners();
+      return true;
+    } catch (e) {
+      _setError('Failed to add uploaded photo: $e');
+      return false;
+    } finally {
+      _setUploading(false);
+      _setUploadProgress(0.0);
+    }
+  }
+
+  // Analyze selected image
   Future<void> analyzeSelectedImage() async {
     if (_selectedImage == null) return;
 
@@ -118,54 +169,18 @@ class ImageProviderService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Helper methods
-  void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
-  }
-
-  void _setError(String error) {
-    _error = error;
-    notifyListeners();
-  }
-
-  void _clearError() {
-    _error = null;
-  }
-
-  Future<void> addUploadedPhoto(File imageFile) async {
-    _setLoading(true);
-    _clearError();
-
-    try {
-      // Analyze the image first
-      final analysis = await apiService.analyzeImage(imageFile);
-      
-      // Create a new selfie model for the uploaded photo
-      final uploadedSelfie = SelfieModel(
-        id: 'uploaded_${DateTime.now().millisecondsSinceEpoch}',
-        name: 'My Upload - ${_getDifficultyFromAnalysis(analysis)}',
-        difficulty: _getDifficultyFromAnalysis(analysis),
-        poseType: analysis['analysis']['pose_type'] ?? 'unknown',
-        lightingQuality: analysis['analysis']['lighting_quality'] ?? 'unknown',
-        backgroundComplexity: analysis['analysis']['background_complexity'] ?? 'unknown',
-        bodyType: 'user_upload',
-        description: 'User uploaded photo - ${analysis['analysis']['image_quality'] ?? 'good'} quality',
-      );
-
-      // Copy image to a permanent location (in a real app, you'd save to documents)
-      _uploadedSelfies.add(uploadedSelfie);
-      
-      // Select the newly uploaded photo
-      _selectedTestSelfie = uploadedSelfie;
-      _selectedImage = imageFile;
-      _analysisResult = analysis;
-      
-      notifyListeners();
-    } catch (e) {
-      _setError('Failed to add uploaded photo: $e');
-    } finally {
-      _setLoading(false);
+  // Helper method to determine difficulty from analysis
+  String _getDifficultyFromAnalysis(Map<String, dynamic> analysis) {
+    final imageQuality = analysis['analysis']['image_quality'] ?? 'good';
+    final lightingQuality = analysis['analysis']['lighting_quality'] ?? 'good';
+    final backgroundComplexity = analysis['analysis']['background_complexity'] ?? 'simple';
+  
+    if (imageQuality == 'excellent' && lightingQuality == 'good' && backgroundComplexity == 'simple') {
+      return 'Ideal';
+    } else if (imageQuality == 'poor' || lightingQuality == 'poor' || backgroundComplexity == 'complex') {
+      return 'Challenging';
+    } else {
+      return 'Moderate';
     }
   }
 
@@ -183,26 +198,36 @@ class ImageProviderService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Helper method to determine difficulty from analysis
-  String _getDifficultyFromAnalysis(Map<String, dynamic> analysis) {
-    final imageQuality = analysis['analysis']['image_quality'] ?? 'good';
-    final lightingQuality = analysis['analysis']['lighting_quality'] ?? 'good';
-    final backgroundComplexity = analysis['analysis']['background_complexity'] ?? 'simple';
-    
-    if (imageQuality == 'excellent' && lightingQuality == 'good' && backgroundComplexity == 'simple') {
-      return 'Ideal';
-    } else if (imageQuality == 'poor' || lightingQuality == 'poor' || backgroundComplexity == 'complex') {
-      return 'Challenging';
-    } else {
-      return 'Moderate';
-    }
-  }
-
   // Get image file for uploaded photos
   File? getImageFile(String selfieId) {
     if (selfieId.startsWith('uploaded_') && _selectedImage != null && _selectedTestSelfie?.id == selfieId) {
       return _selectedImage;
     }
     return null;
+  }
+
+  // Helper methods
+  void _setLoading(bool loading) {
+    _isLoading = loading;
+    notifyListeners();
+  }
+
+  void _setUploading(bool uploading) {
+    _isUploading = uploading;
+    notifyListeners();
+  }
+
+  void _setUploadProgress(double progress) {
+    _uploadProgress = progress;
+    notifyListeners();
+  }
+
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  void _clearError() {
+    _error = null;
   }
 }
