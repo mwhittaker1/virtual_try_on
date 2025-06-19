@@ -1,7 +1,9 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/image_provider.dart';
 import '../models/selfie_model.dart';
+import 'segmentation_screen.dart';
 
 class PhotoGalleryScreen extends StatefulWidget {
   const PhotoGalleryScreen({super.key});
@@ -113,7 +115,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              // Actual image from assets
+              // Handle both asset and uploaded images
               _buildPhotoImage(selfie, context.watch<ImageProviderService>()),
               
               // Difficulty indicator
@@ -267,7 +269,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
     return selfies.where((selfie) => selfie.difficulty == _selectedFilter).toList();
   }
 
-   Widget _buildPhotoImage(SelfieModel selfie, ImageProviderService imageProvider) {
+  Widget _buildPhotoImage(SelfieModel selfie, ImageProviderService imageProvider) {
     if (selfie.id.startsWith('uploaded_')) {
       // Handle uploaded images
       final imageFile = imageProvider.getImageFile(selfie.id);
@@ -355,37 +357,18 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
               ),
               const SizedBox(height: 20),
               
-            Container(
-              height: 200,
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(16),
+              Container(
+                height: 200,
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(16),
                 ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(16),
-                child: Image.asset(
-                  'assets/test_selfies/${selfie.id}.jpg',
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            _getGradientColor(selfie.id, 0),
-                            _getGradientColor(selfie.id, 1),
-                            ],
-                          ),
-                        ),
-                      child: Icon(
-                        Icons.person,
-                        size: 80,
-                        color: Colors.white.withOpacity(0.7),
-                        ),
-                      );
-                    },
-                  ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: _buildPhotoImage(selfie, context.read<ImageProviderService>()),
                 ),
               ),
+              
               const SizedBox(height: 20),
               
               // Photo details
@@ -473,6 +456,54 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
                         ),
                       ),
                     ),
+                    
+                    // Add delete button for uploaded photos
+                    if (selfie.id.startsWith('uploaded_')) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Delete Photo'),
+                                content: const Text('Are you sure you want to delete this photo?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Cancel'),
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      context.read<ImageProviderService>().removeUploadedPhoto(selfie.id);
+                                      Navigator.pop(context); // Close dialog
+                                      Navigator.pop(context); // Close photo details
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text('Photo deleted'),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    },
+                                    child: const Text('Delete'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          label: const Text('Delete Photo', style: TextStyle(color: Colors.red)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            side: const BorderSide(color: Colors.red),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -510,5 +541,15 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
         ],
       ),
     );
+  }
+
+  File? _getImageFile(SelfieModel selfie) {
+    final imageProvider = context.read<ImageProviderService>();
+    if (selfie.id.startsWith('uploaded_')) {
+      return imageProvider.getImageFile(selfie.id);
+    }
+    // For asset images, we'd need to copy them to a file first
+    // For now, just return null for asset images
+    return null;
   }
 }

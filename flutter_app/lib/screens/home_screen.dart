@@ -4,6 +4,8 @@ import '../providers/image_provider.dart';
 import '../services/api_service.dart';
 import 'photo_gallery_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'segmentation_screen.dart';
+import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -170,39 +172,128 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturesSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Features',
-          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-            fontWeight: FontWeight.bold,
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Features',
+        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      const SizedBox(height: 16),
+      _buildFeatureCard(
+        icon: Icons.photo_library,
+        title: 'Test Photo Gallery',
+        description: 'Choose from curated test photos with different poses and lighting conditions',
+        color: Colors.blue,
+      ),
+      const SizedBox(height: 12),
+      _buildFeatureCard(
+        icon: Icons.camera_alt,
+        title: 'Upload Your Photo',
+        description: 'Take a new photo or select from your gallery for virtual try-on',
+        color: Colors.green,
+      ),
+      const SizedBox(height: 12),
+      _buildFeatureCard(
+        icon: Icons.analytics,
+        title: 'AI Analysis',
+        description: 'Get insights about pose quality, lighting, and suitability for virtual try-on',
+        color: Colors.orange,
+      ),
+    ],
+  );
+  }
+  
+  Widget _buildActionButtons() {
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      ElevatedButton.icon(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const PhotoGalleryScreen(),
+            ),
+          );
+        },
+        icon: const Icon(Icons.photo_library),
+        label: const Text('Browse Test Photos'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
         ),
-        const SizedBox(height: 16),
-        _buildFeatureCard(
-          icon: Icons.photo_library,
-          title: 'Test Photo Gallery',
-          description: 'Choose from curated test photos with different poses and lighting conditions',
-          color: Colors.blue,
+      ),
+      const SizedBox(height: 12),
+      OutlinedButton.icon(
+        onPressed: () {
+          _showImagePickerDialog();
+        },
+        icon: const Icon(Icons.add_a_photo),
+        label: const Text('Upload Your Photo'),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
         ),
-        const SizedBox(height: 12),
-        _buildFeatureCard(
-          icon: Icons.camera_alt,
-          title: 'Upload Your Photo',
-          description: 'Take a new photo or select from your gallery for virtual try-on',
-          color: Colors.green,
-        ),
-        const SizedBox(height: 12),
-        _buildFeatureCard(
-          icon: Icons.analytics,
-          title: 'AI Analysis',
-          description: 'Get insights about pose quality, lighting, and suitability for virtual try-on',
-          color: Colors.orange,
-        ),
-      ],
-    );
+      ),
+      const SizedBox(height: 12),
+      Consumer<ImageProviderService>(
+        builder: (context, imageProvider, child) {
+          if (imageProvider.selectedTestSelfie != null || imageProvider.selectedImage != null) {
+            return OutlinedButton.icon(
+              onPressed: () {
+                File? imageFile;
+                
+                if (imageProvider.selectedImage != null) {
+                  // Use uploaded image
+                  imageFile = imageProvider.selectedImage;
+                } else if (imageProvider.selectedTestSelfie != null && 
+                          imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
+                  // Use uploaded selfie
+                  imageFile = imageProvider.getImageFile(imageProvider.selectedTestSelfie!.id);
+                }
+                
+                if (imageFile != null) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => SegmentationScreen(imageFile: imageFile!),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Segmentation only works with uploaded photos'),
+                      backgroundColor: Colors.orange,
+                    ),
+                  );
+                }
+              },
+              icon: const Icon(Icons.analytics),
+              label: Text(
+                'Analyze ${imageProvider.selectedTestSelfie?.name ?? "Selected Photo"}',
+              ),
+              style: OutlinedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            );
+          }
+          return const SizedBox.shrink();
+        },
+      ),
+    ],
+  );
   }
+
 
   Widget _buildFeatureCard({
     required IconData icon,
@@ -252,46 +343,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PhotoGalleryScreen(),
-              ),
-            );
-          },
-          icon: const Icon(Icons.photo_library),
-          label: const Text('Browse Test Photos'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () {
-            _showImagePickerDialog();
-          },
-          icon: const Icon(Icons.add_a_photo),
-          label: const Text('Upload Your Photo'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-          ),
-        ),
-      ],
     );
   }
 
@@ -475,21 +526,24 @@ class _UploadProgressDialogState extends State<UploadProgressDialog> {
     if (_uploadStarted) return;
     _uploadStarted = true;
 
-    if (widget.imageProvider.selectedImage != null) {
-      final success = await widget.imageProvider.addUploadedPhoto(
-        widget.imageProvider.selectedImage!,
-      );
-      
-      if (mounted) {
-        Navigator.of(context).pop(success);
+    // Delay to prevent build-time notifications
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (widget.imageProvider.selectedImage != null) {
+        final success = await widget.imageProvider.addUploadedPhoto(
+          widget.imageProvider.selectedImage!,
+        );
+        
+        if (mounted) {
+          Navigator.of(context).pop(success);
+        }
+      } else {
+        if (mounted) {
+          Navigator.of(context).pop(false);
+        }
       }
-    } else {
-      if (mounted) {
-        Navigator.of(context).pop(false);
-      }
-    }
+    });
   }
-
+  
   @override
   Widget build(BuildContext context) {
     return PopScope(

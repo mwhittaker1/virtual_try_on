@@ -19,6 +19,7 @@ class ImageProviderService extends ChangeNotifier {
   double _uploadProgress = 0.0;
   String? _error;
   Map<String, dynamic>? _analysisResult;
+  Map<String, dynamic>? _segmentationResult;
 
   // Getters
   List<SelfieModel> get testSelfies => _testSelfies;
@@ -31,6 +32,7 @@ class ImageProviderService extends ChangeNotifier {
   double get uploadProgress => _uploadProgress;
   String? get error => _error;
   Map<String, dynamic>? get analysisResult => _analysisResult;
+  Map<String, dynamic>? get segmentationResult => _segmentationResult;
 
   // Load test selfies from API
   Future<void> loadTestSelfies() async {
@@ -229,5 +231,21 @@ class ImageProviderService extends ChangeNotifier {
 
   void _clearError() {
     _error = null;
+  }
+  // Segment clothing in selected image
+  Future<void> segmentSelectedImage() async {
+    if (_selectedImage == null) return;
+
+    _setLoading(true);
+    _clearError();
+
+    try {
+      _segmentationResult = await apiService.segmentClothing(_selectedImage!);
+      notifyListeners();
+    } catch (e) {
+      _setError('Failed to segment clothing: $e');
+    } finally {
+      _setLoading(false);
+    }
   }
 }

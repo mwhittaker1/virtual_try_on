@@ -94,4 +94,28 @@ class ApiService {
       rethrow;
     }
   }
+    Future<Map<String, dynamic>> segmentClothing(File imageFile) async {
+    try {
+      var request = http.MultipartRequest(
+        'POST',
+        Uri.parse('$baseUrl/segment-clothing'),
+      );
+
+      request.files.add(
+        await http.MultipartFile.fromPath('file', imageFile.path),
+      );
+
+      var streamedResponse = await request.send();
+      var response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body);
+      } else {
+        throw Exception('Failed to segment clothing: ${response.body}');
+      }
+    } catch (e) {
+      print('Error segmenting clothing: $e');
+      rethrow;
+    }
+  }
 }
