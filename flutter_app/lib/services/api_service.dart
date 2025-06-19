@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 import '../models/selfie_model.dart';
 
 class ApiService {
-  static const String baseUrl = 'http://10.0.2.2:8000'; // Android emulator
+  static const String baseUrl = 'http://localhost:8000'; // Android emulator
   // Use 'http://localhost:8000' for iOS simulator
   // Use your actual IP for physical devices
 
