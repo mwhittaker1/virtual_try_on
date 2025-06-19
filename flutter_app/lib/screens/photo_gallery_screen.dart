@@ -113,25 +113,31 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
           borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
-              // Placeholder image (in real app, this would be the actual image)
-              Container(
+              // Actual image from assets
+              Image.asset(
+                'assets/test_selfies/${selfie.id}.jpg',
                 width: double.infinity,
                 height: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      _getGradientColor(selfie.id, 0),
-                      _getGradientColor(selfie.id, 1),
-                    ],
-                  ),
-                ),
-                child: Icon(
-                  Icons.person,
-                  size: 60,
-                  color: Colors.white.withOpacity(0.7),
-                ),
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) {
+                  return Container(
+                    width: double.infinity,
+                    height: double.infinity,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          _getGradientColor(selfie.id, 0),
+                          _getGradientColor(selfie.id, 1),
+                        ],
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.person,
+                      size: 60,
+                      color: Colors.white.withOpacity(0.7),
+                    ),
+                  );
+                },
               ),
               
               // Difficulty indicator
@@ -331,26 +337,37 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
               ),
               const SizedBox(height: 20),
               
-              // Photo preview
-              Container(
-                height: 200,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      _getGradientColor(selfie.id, 0),
-                      _getGradientColor(selfie.id, 1),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(16),
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
                 ),
-                child: Icon(
-                  Icons.person,
-                  size: 80,
-                  color: Colors.white.withOpacity(0.7),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: Image.asset(
+                  'assets/test_selfies/${selfie.id}.jpg',
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) {
+                    return Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            _getGradientColor(selfie.id, 0),
+                            _getGradientColor(selfie.id, 1),
+                            ],
+                          ),
+                        ),
+                      child: Icon(
+                        Icons.person,
+                        size: 80,
+                        color: Colors.white.withOpacity(0.7),
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
-              
               const SizedBox(height: 20),
               
               // Photo details
