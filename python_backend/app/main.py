@@ -207,7 +207,8 @@ async def analyze_image(file: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
 
-def segment_clothing(image: PILImage.Image):
+@app.post("/segment-clothing")
+def segment_clothing(image):
     """Segment clothing items in the image"""
     try:
         # Prepare image for model
@@ -282,38 +283,23 @@ def segment_clothing(image: PILImage.Image):
 
 @app.post("/segment-clothing")
 async def segment_clothing_endpoint(file: UploadFile = File(...)):
-    """Segment clothing items in uploaded image"""
+    """Simple mock clothing segmentation endpoint"""
     try:
-        # Validate file type
-        if not file.content_type.startswith('image/'):
-            raise HTTPException(status_code=400, detail="File must be an image")
-        
-        # Read and process image
-        contents = await file.read()
-        image = PILImage.open(io.BytesIO(contents))
-        
-        # Convert to RGB if needed
-        if image.mode != 'RGB':
-            image = image.convert('RGB')
-        
-        # Run segmentation
-        segmentation_result = segment_clothing(image)
-        
-        # Add image info
-        width, height = image.size
-        
         return {
-            "message": "Clothing segmentation completed",
-            "image_info": {
-                "width": width,
-                "height": height,
-                "mode": image.mode
-            },
-            "segmentation": segmentation_result
+            "message": "Clothing segmentation completed (mock)",
+            "image_info": {"width": 640, "height": 480, "mode": "RGB"},
+            "segmentation": {
+                "detected_items": [
+                    {"category": "upper-clothes", "label": 4, "coverage": 0.25, "pixel_count": 76800},
+                    {"category": "pants", "label": 6, "coverage": 0.30, "pixel_count": 92160},
+                    {"category": "face", "label": 11, "coverage": 0.08, "pixel_count": 24576},
+                ],
+                "segmentation_shape": [480, 640],
+                "total_categories": 3
+            }
         }
-        
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
