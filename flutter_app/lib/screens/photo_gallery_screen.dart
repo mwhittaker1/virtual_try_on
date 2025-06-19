@@ -31,7 +31,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
             return _buildErrorWidget(imageProvider.error!);
           }
 
-          final filteredSelfies = _getFilteredSelfies(imageProvider.testSelfies);
+          final filteredSelfies = _getFilteredSelfies(imageProvider.allSelfies);
 
           return Column(
             children: [
@@ -114,31 +114,7 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
           child: Stack(
             children: [
               // Actual image from assets
-              Image.asset(
-                'assets/test_selfies/${selfie.id}.jpg',
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) {
-                  return Container(
-                    width: double.infinity,
-                    height: double.infinity,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          _getGradientColor(selfie.id, 0),
-                          _getGradientColor(selfie.id, 1),
-                        ],
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      size: 60,
-                      color: Colors.white.withOpacity(0.7),
-                    ),
-                  );
-                },
-              ),
+              _buildPhotoImage(selfie, context.watch<ImageProviderService>()),
               
               // Difficulty indicator
               Positioned(
@@ -289,6 +265,48 @@ class _PhotoGalleryScreenState extends State<PhotoGalleryScreen> {
       return selfies;
     }
     return selfies.where((selfie) => selfie.difficulty == _selectedFilter).toList();
+  }
+
+   Widget _buildPhotoImage(SelfieModel selfie, ImageProviderService imageProvider) {
+    if (selfie.id.startsWith('uploaded_')) {
+      // Handle uploaded images
+      final imageFile = imageProvider.getImageFile(selfie.id);
+      if (imageFile != null) {
+        return Image.file(
+          imageFile,
+          width: double.infinity,
+          height: double.infinity,
+          fit: BoxFit.cover,
+        );
+      }
+    }
+    
+    // Handle asset images
+    return Image.asset(
+      'assets/test_selfies/${selfie.id}.jpg',
+      width: double.infinity,
+      height: double.infinity,
+      fit: BoxFit.cover,
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: double.infinity,
+          height: double.infinity,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                _getGradientColor(selfie.id, 0),
+                _getGradientColor(selfie.id, 1),
+              ],
+            ),
+          ),
+          child: Icon(
+            Icons.person,
+            size: 60,
+            color: Colors.white.withOpacity(0.7),
+          ),
+        );
+      },
+    );
   }
 
   Color _getGradientColor(String id, int index) {

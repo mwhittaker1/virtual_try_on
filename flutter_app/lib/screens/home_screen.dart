@@ -326,18 +326,42 @@ class _HomeScreenState extends State<HomeScreen> {
               leading: const Icon(Icons.camera_alt),
               title: const Text('Camera'),
               subtitle: const Text('Take a new photo'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                context.read<ImageProviderService>().pickImageFromCamera();
+                final imageProvider = context.read<ImageProviderService>();
+                await imageProvider.pickImageFromCamera();
+                if (imageProvider.selectedImage != null) {
+                  await imageProvider.addUploadedPhoto(imageProvider.selectedImage!);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Photo added to gallery!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
               },
             ),
             ListTile(
               leading: const Icon(Icons.photo_library),
               title: const Text('Gallery'),
               subtitle: const Text('Choose from gallery'),
-              onTap: () {
+              onTap: () async {
                 Navigator.pop(context);
-                context.read<ImageProviderService>().pickImageFromGallery();
+                final imageProvider = context.read<ImageProviderService>();
+                await imageProvider.pickImageFromGallery();
+                if (imageProvider.selectedImage != null) {
+                  await imageProvider.addUploadedPhoto(imageProvider.selectedImage!);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Photo added to gallery!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  }
+                }
               },
             ),
           ],
