@@ -7,8 +7,17 @@ import io
 import base64
 from typing import Dict, Any
 import json
+from transformers import AutoImageProcessor, AutoModelForSemanticSegmentation
+import torch
+import numpy as np
+from PIL import Image as PILImage
 
 app = FastAPI(title="Virtual Dressing Room API", version="1.0.0")
+
+# Load the fashion segmentation model
+processor = AutoImageProcessor.from_pretrained("mattmdjaga/segformer_b2_clothes")
+model = AutoModelForSemanticSegmentation.from_pretrained("mattmdjaga/segformer_b2_clothes")
+
 
 # Enable CORS for Flutter app
 app.add_middleware(
@@ -197,6 +206,114 @@ async def analyze_image(file: UploadFile = File(...)):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
+
+def segment_clothing(image: PILImage.Image):
+    """Segment clothing items in the image"""
+    try:
+        # Prepare image for model
+        inputs = processor(images=image, return_tensors="pt")
+        
+        # Run inference
+        with torch.no_grad():
+            outputs = model(**inputs)
+            
+        # Get segmentation logits
+        logits = outputs.logits
+        
+        # Resize to original image size
+        upsampled_logits = torch.nn.functional.interpolate(
+            logits,
+            size=image.size[::-1],  # PIL uses (width, height), torch uses (height, width)
+            mode="bilinear",
+            align_corners=False,
+        )
+        
+        # Get predicted segmentation map
+        predicted = upsampled_logits.argmax(dim=1)
+        segmentation_map = predicted[0].cpu().numpy()
+        
+        # Define clothing categories (based on model's classes)
+        categories = {
+            0: "background",
+            1: "hat",
+            2: "hair", 
+            3: "sunglasses",
+            4: "upper-clothes",
+            5: "skirt",
+            6: "pants",
+            7: "dress",
+            8: "belt",
+            9: "left-shoe",
+            10: "right-shoe",
+            11: "face",
+            12: "left-leg",
+            13: "right-leg",
+            14: "left-arm",
+            15: "right-arm",
+            16: "bag",
+            17: "scarf"
+        }
+        
+        # Analyze detected clothing items
+        detected_items = []
+        unique_labels = np.unique(segmentation_map)
+        
+        for label in unique_labels:
+            if label > 0:  # Skip background
+                mask_area = np.sum(segmentation_map == label)
+                total_pixels = segmentation_map.shape[0] * segmentation_map.shape[1]
+                coverage = mask_area / total_pixels
+                
+                detected_items.append({
+                    "category": categories.get(label, f"unknown_{label}"),
+                    "label": int(label),
+                    "coverage": float(coverage),
+                    "pixel_count": int(mask_area)
+                })
+        
+        return {
+            "detected_items": detected_items,
+            "segmentation_shape": segmentation_map.shape,
+            "total_categories": len(unique_labels) - 1  # Exclude background
+        }
+        
+    except Exception as e:
+        raise Exception(f"Segmentation failed: {str(e)}")
+
+@app.post("/segment-clothing")
+async def segment_clothing_endpoint(file: UploadFile = File(...)):
+    """Segment clothing items in uploaded image"""
+    try:
+        # Validate file type
+        if not file.content_type.startswith('image/'):
+            raise HTTPException(status_code=400, detail="File must be an image")
+        
+        # Read and process image
+        contents = await file.read()
+        image = PILImage.open(io.BytesIO(contents))
+        
+        # Convert to RGB if needed
+        if image.mode != 'RGB':
+            image = image.convert('RGB')
+        
+        # Run segmentation
+        segmentation_result = segment_clothing(image)
+        
+        # Add image info
+        width, height = image.size
+        
+        return {
+            "message": "Clothing segmentation completed",
+            "image_info": {
+                "width": width,
+                "height": height,
+                "mode": image.mode
+            },
+            "segmentation": segmentation_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {str(e)}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
