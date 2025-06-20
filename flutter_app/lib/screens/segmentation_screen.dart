@@ -1,4 +1,5 @@
 // flutter_app/lib/screens/segmentation_screen.dart
+import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -85,12 +86,15 @@ class _SegmentationScreenState extends State<SegmentationScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Original Image
+          // Overlayed Segmentation Image (Larger Preview)
           Container(
             width: double.infinity,
-            height: 300,
+            constraints: const BoxConstraints(
+              maxHeight: 500, // Make the preview box larger
+              minHeight: 300,
+            ),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.1),
@@ -100,14 +104,23 @@ class _SegmentationScreenState extends State<SegmentationScreen> {
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.file(
-                widget.imageFile,
-                fit: BoxFit.cover,
-              ),
+              borderRadius: BorderRadius.circular(16),
+              child: segmentationResult['overlayed_image_base64'] != null
+                  ? Image.memory(
+                      // Show the overlayed segmentation result
+                      base64Decode(segmentationResult['overlayed_image_base64']),
+                      fit: BoxFit.contain, // Scale to fit
+                      width: double.infinity,
+                      height: double.infinity,
+                    )
+                  : Image.file(
+                      widget.imageFile,
+                      fit: BoxFit.contain,
+                      width: double.infinity,
+                      height: double.infinity,
+                    ),
             ),
           ),
-          
           const SizedBox(height: 24),
           
           // Detection Summary

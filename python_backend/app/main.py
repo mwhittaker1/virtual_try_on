@@ -269,18 +269,50 @@ async def segment_clothing_endpoint(file: UploadFile = File(...), device: str = 
         import matplotlib
         import matplotlib.pyplot as plt
         matplotlib.use('Agg')
-        # Use id2label with integer keys for correct label names
-        color_map = None
-        if hasattr(model, 'config') and hasattr(model.config, 'id2label'):
-            # Convert keys to int if needed
-            color_map = {int(k): v for k, v in model.config.id2label.items()}
-        if color_map:
-            num_classes = len(color_map)
-            colors = plt.cm.get_cmap('tab20', num_classes)
-        else:
-            num_classes = int(pred_seg.max()) + 1
-            colors = plt.cm.get_cmap('tab20', num_classes)
-        mask_rgba = (colors(pred_seg) * 255).astype(np.uint8)
+        # Custom color map for each category
+        custom_colors = {
+            0: [220, 220, 220, 255],  # background (will be replaced with checkerboard)
+            1: [139, 69, 19, 180],    # hat (brown)
+            2: [139, 69, 19, 255],    # hair (brown)
+            3: [255, 0, 0, 180],      # glove (red)
+            4: [0, 0, 0, 0],          # sunglasses (transparent)
+            5: [0, 128, 255, 180],    # upper-clothes (blue)
+            6: [255, 0, 255, 180],    # dress (magenta)
+            7: [0, 255, 0, 180],      # coat (green)
+            8: [255, 255, 0, 180],    # socks (yellow)
+            9: [0, 255, 255, 180],    # pants (cyan)
+            10: [255, 128, 0, 180],   # jumpsuits (orange)
+            11: [128, 0, 255, 180],   # scarf (purple)
+            12: [255, 0, 128, 180],   # skirt (pink)
+            13: [255, 224, 189, 255], # face (skin tone)
+            14: [255, 100, 100, 180], # left-arm (light red)
+            15: [200, 0, 0, 180],     # right-arm (dark red)
+            16: [255, 150, 150, 180], # left-leg (lighter red)
+            17: [180, 0, 0, 180],     # right-leg (darker red)
+            18: [0, 0, 255, 180],     # left-shoe (blue)
+            19: [0, 255, 128, 180],   # right-shoe (teal)
+            20: [160, 82, 45, 180],   # bag (brown)
+            21: [128, 128, 128, 180], # belt (gray)
+        }
+        # Checkerboard for background
+        def checkerboard(shape, block_size=16):
+            rows, cols = shape
+            re = np.r_[block_size*[0,1]]             # even-numbered rows
+            ro = np.r_[block_size*[1,0]]             # odd-numbered rows
+            checker = np.row_stack(block_size*(re, ro))
+            reps = (rows // (2*block_size) + 1, cols // (2*block_size) + 1)
+            checker = np.tile(checker, reps)
+            return checker[:rows, :cols]
+        # Build RGBA mask
+        mask_rgba = np.zeros((pred_seg.shape[0], pred_seg.shape[1], 4), dtype=np.uint8)
+        for label in np.unique(pred_seg):
+            color = custom_colors.get(label, [255, 255, 255, 180])
+            if label == 0:  # background
+                # Checkerboard pattern
+                cb = checkerboard(pred_seg.shape)
+                mask_rgba[pred_seg == label] = np.where(cb[pred_seg == label][:, None], [220,220,220,255], [180,180,180,255])
+            else:
+                mask_rgba[pred_seg == label] = color
         mask_img = Image.fromarray(mask_rgba, mode='RGBA').resize(image.size)
         overlayed = Image.alpha_composite(image.convert('RGBA'), mask_img)
         
@@ -288,6 +320,11 @@ async def segment_clothing_endpoint(file: UploadFile = File(...), device: str = 
         buffered = io.BytesIO()
         overlayed.save(buffered, format="PNG")
         overlayed_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # For label names, use id2label from model config
+        color_map = None
+        if hasattr(model, 'config') and hasattr(model.config, 'id2label'):
+            color_map = {int(k): v for k, v in model.config.id2label.items()}
         
         # Calculate coverage for each class
         detected_items = []
@@ -327,4 +364,3 @@ async def segment_clothing_endpoint(file: UploadFile = File(...), device: str = 
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    
