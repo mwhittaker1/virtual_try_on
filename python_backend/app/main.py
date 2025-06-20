@@ -7,10 +7,6 @@ import io
 import base64
 from typing import Dict, Any
 import json
-from transformers import AutoImageProcessor, AutoModelForSemanticSegmentation
-import torch
-import numpy as np
-from PIL import Image as PILImage
 
 app = FastAPI(title="Virtual Dressing Room API", version="1.0.0")
 
