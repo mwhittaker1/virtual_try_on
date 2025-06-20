@@ -128,6 +128,10 @@ class ImageProviderService extends ChangeNotifier {
       );
 
       _uploadedSelfies.add(uploadedSelfie);
+
+      // Store the image file for later retrieval
+      _uploadedImages[uploadedSelfie.id] = imageFile;
+
       _selectedTestSelfie = uploadedSelfie;
       _selectedImage = imageFile;
       _analysisResult = analysis;
@@ -200,12 +204,13 @@ class ImageProviderService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Get image file for uploaded photos
+  // Store uploaded images properly
+  Map<String, File> _uploadedImages = {};
+
+  // Get image file for uploaded photos  
   File? getImageFile(String selfieId) {
-    // For uploaded photos, we need to maintain a map of selfie IDs to files
-    // For now, return the currently selected image if it matches
-    if (selfieId.startsWith('uploaded_') && _selectedTestSelfie?.id == selfieId && _selectedImage != null) {
-      return _selectedImage;
+    if (selfieId.startsWith('uploaded_')) {
+      return _uploadedImages[selfieId];
     }
     return null;
   }
@@ -235,14 +240,12 @@ class ImageProviderService extends ChangeNotifier {
     _error = null;
   }
   // Segment clothing in selected image
-  Future<void> segmentSelectedImage() async {
-    if (_selectedImage == null) return;
-
+  Future<void> segmentImageFile(File imageFile) async {
     _setLoading(true);
     _clearError();
 
     try {
-      _segmentationResult = await apiService.segmentClothing(_selectedImage!);
+      _segmentationResult = await apiService.segmentClothing(imageFile);
       notifyListeners();
     } catch (e) {
       _setError('Failed to segment clothing: $e');

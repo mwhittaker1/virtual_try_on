@@ -211,14 +211,19 @@ async def analyze_image(file: UploadFile = File(...)):
 async def segment_clothing_endpoint(file: UploadFile = File(...)):
     """Mock clothing segmentation endpoint"""
     try:
+        print(f"Received file: {file.filename}, content_type: {file.content_type}")
+        
         # Validate file type
         if not file.content_type.startswith('image/'):
             raise HTTPException(status_code=400, detail="File must be an image")
         
         # Read image to get basic info
         contents = await file.read()
+        print(f"File size: {len(contents)} bytes")
+        
         image = Image.open(io.BytesIO(contents))
         width, height = image.size
+        print(f"Image dimensions: {width}x{height}")
         
         # Mock segmentation results
         detected_items = [
@@ -227,7 +232,7 @@ async def segment_clothing_endpoint(file: UploadFile = File(...)):
             {"category": "face", "label": 11, "coverage": 0.08, "pixel_count": int(width * height * 0.08)},
         ]
         
-        return {
+        result = {
             "message": "Clothing segmentation completed (mock)",
             "image_info": {"width": width, "height": height, "mode": image.mode},
             "segmentation": {
@@ -237,7 +242,13 @@ async def segment_clothing_endpoint(file: UploadFile = File(...)):
             }
         }
         
+        print("Segmentation result:", result)
+        return result
+        
     except Exception as e:
+        print(f"Error in segmentation: {str(e)}")
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {str(e)}")
 
 if __name__ == "__main__":

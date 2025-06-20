@@ -21,7 +21,7 @@ class _SegmentationScreenState extends State<SegmentationScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ImageProviderService>().segmentSelectedImage();
+      context.read<ImageProviderService>().segmentImageFile(widget.imageFile);
     });
   }
 
@@ -57,7 +57,7 @@ class _SegmentationScreenState extends State<SegmentationScreen> {
                   Text('Error: ${imageProvider.error}'),
                   SizedBox(height: 16),
                   ElevatedButton(
-                    onPressed: () => imageProvider.segmentSelectedImage(),
+                    onPressed: () => imageProvider.segmentImageFile(widget.imageFile),
                     child: Text('Retry'),
                   ),
                 ],
