@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer' as developer;
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
@@ -18,7 +19,7 @@ class ApiService {
       
       return response.statusCode == 200;
     } catch (e) {
-      print('Health check failed: $e');
+      developer.log('Health check failed', error: e, name: 'ApiService');
       return false;
     }
   }
@@ -41,7 +42,7 @@ class ApiService {
         throw Exception('Failed to load test selfies');
       }
     } catch (e) {
-      print('Error fetching test selfies: $e');
+      developer.log('Error fetching test selfies', error: e, name: 'ApiService');
       rethrow;
     }
   }
@@ -66,7 +67,7 @@ class ApiService {
         throw Exception('Failed to upload image: ${response.body}');
       }
     } catch (e) {
-      print('Error uploading image: $e');
+      developer.log('Error uploading image', error: e, name: 'ApiService');
       rethrow;
     }
   }
@@ -91,7 +92,7 @@ class ApiService {
         throw Exception('Failed to analyze image: ${response.body}');
       }
     } catch (e) {
-      print('Error analyzing image: $e');
+      developer.log('Error analyzing image', error: e, name: 'ApiService');
       rethrow;
     }
   }
@@ -119,14 +120,13 @@ class ApiService {
         return json.decode(response.body);
       } else {
         String errorMsg = 'Failed to segment clothing: ${response.body}';
-        print('[API ERROR] Status: ${response.statusCode}');
-        print('[API ERROR] Response body: ${response.body}');
-        print('[API ERROR] Headers: ${response.headers}');
+        developer.log('[API ERROR] Status: ${response.statusCode}', name: 'ApiService');
+        developer.log('[API ERROR] Response body: ${response.body}', name: 'ApiService');
+        developer.log('[API ERROR] Headers: ${response.headers}', name: 'ApiService');
         throw Exception(errorMsg);
       }
     } catch (e, stack) {
-      print('[API EXCEPTION] Error segmenting clothing: $e');
-      print('[API EXCEPTION] Stack trace: $stack');
+      developer.log('[API EXCEPTION] Error segmenting clothing', error: e, stackTrace: stack, name: 'ApiService');
       rethrow;
     }
   }

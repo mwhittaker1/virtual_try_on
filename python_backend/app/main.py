@@ -7,12 +7,25 @@ import io
 import base64
 from typing import Dict, Any
 import json
+import logging
+from transformers import AutoImageProcessor, AutoModelForSemanticSegmentation
+import torch
 
 app = FastAPI(title="Virtual Dressing Room API", version="1.0.0")
 
-# # Load the fashion segmentation model
-# processor = AutoImageProcessor.from_pretrained("mattmdjaga/segformer_b2_clothes")
-# model = AutoModelForSemanticSegmentation.from_pretrained("mattmdjaga/segformer_b2_clothes")
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+)
+logger = logging.getLogger("virtual_dressing_room")
+
+# Load the fashion segmentation model
+SEG_MODEL_NAME = "mattmdjaga/segformer_b2_clothes"
+SEG_DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+logger.info(f"Loading segmentation model '{SEG_MODEL_NAME}' on device: {SEG_DEVICE}")
+processor = AutoImageProcessor.from_pretrained(SEG_MODEL_NAME)
+model = AutoModelForSemanticSegmentation.from_pretrained(SEG_MODEL_NAME).to(SEG_DEVICE)
 
 
 # Enable CORS for Flutter app
@@ -204,62 +217,114 @@ async def analyze_image(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"Error analyzing image: {str(e)}")
     
 @app.post("/segment-clothing")
-async def segment_clothing_endpoint(file: UploadFile = File(...)):
-    """Mock clothing segmentation endpoint"""
+async def segment_clothing_endpoint(file: UploadFile = File(...), device: str = None):
+    """Clothing segmentation endpoint using real model"""
     import sys
     import traceback
     try:
-        print(f"[DEBUG] Received file: {file.filename}, content_type: {file.content_type}")
-        print(f"[DEBUG] Request headers: {file.headers if hasattr(file, 'headers') else 'N/A'}")
+        logger.info(f"Received file: {file.filename}, content_type: {file.content_type}")
+        logger.debug(f"Request headers: {file.headers if hasattr(file, 'headers') else 'N/A'}")
         
         # Validate file type
         if not file.content_type.startswith('image/'):
-            print("[DEBUG] Invalid file type received.")
+            logger.warning("Invalid file type received.")
             raise HTTPException(status_code=400, detail="File must be an image")
         
         # Read image to get basic info
         contents = await file.read()
-        print(f"[DEBUG] File size: {len(contents)} bytes")
+        logger.info(f"File size: {len(contents)} bytes")
         
         try:
-            image = Image.open(io.BytesIO(contents))
+            image = Image.open(io.BytesIO(contents)).convert("RGB")
         except Exception as img_err:
-            print(f"[DEBUG] Error opening image: {img_err}")
-            traceback.print_exc()
+            logger.error(f"Error opening image: {img_err}")
+            logger.debug(traceback.format_exc())
             raise HTTPException(status_code=400, detail=f"Invalid image file: {img_err}")
         
         width, height = image.size
-        print(f"[DEBUG] Image dimensions: {width}x{height}")
-        print(f"[DEBUG] Image mode: {image.mode}")
+        logger.info(f"Image dimensions: {width}x{height}")
+        logger.info(f"Image mode: {image.mode}")
         
-        # Mock segmentation results
-        detected_items = [
-            {"category": "upper-clothes", "label": 4, "coverage": 0.25, "pixel_count": int(width * height * 0.25)},
-            {"category": "pants", "label": 6, "coverage": 0.30, "pixel_count": int(width * height * 0.30)},
-            {"category": "face", "label": 11, "coverage": 0.08, "pixel_count": int(width * height * 0.08)},
-        ]
-        print(f"[DEBUG] Detected items: {detected_items}")
+        # Choose device (allow override via query param)
+        use_device = device if device in ["cpu", "cuda"] else ("cuda" if torch.cuda.is_available() else "cpu")
+        torch_device = torch.device(use_device)
+        logger.info(f"Using device: {torch_device}")
+        
+        # Preprocess and run model
+        inputs = processor(images=image, return_tensors="pt")
+        inputs = {k: v.to(torch_device) for k, v in inputs.items()}
+        with torch.no_grad():
+            outputs = model(**inputs)
+        logits = outputs.logits
+        upsampled_logits = torch.nn.functional.interpolate(
+            logits,
+            size=image.size[::-1],
+            mode="bilinear",
+            align_corners=False
+        )
+        pred_seg = upsampled_logits.argmax(dim=1)[0].cpu().numpy()
+        
+        # Overlay segmentation mask on image
+        import numpy as np
+        import matplotlib
+        import matplotlib.pyplot as plt
+        matplotlib.use('Agg')
+        # Use id2label with integer keys for correct label names
+        color_map = None
+        if hasattr(model, 'config') and hasattr(model.config, 'id2label'):
+            # Convert keys to int if needed
+            color_map = {int(k): v for k, v in model.config.id2label.items()}
+        if color_map:
+            num_classes = len(color_map)
+            colors = plt.cm.get_cmap('tab20', num_classes)
+        else:
+            num_classes = int(pred_seg.max()) + 1
+            colors = plt.cm.get_cmap('tab20', num_classes)
+        mask_rgba = (colors(pred_seg) * 255).astype(np.uint8)
+        mask_img = Image.fromarray(mask_rgba, mode='RGBA').resize(image.size)
+        overlayed = Image.alpha_composite(image.convert('RGBA'), mask_img)
+        
+        # Encode overlayed image to base64
+        buffered = io.BytesIO()
+        overlayed.save(buffered, format="PNG")
+        overlayed_b64 = base64.b64encode(buffered.getvalue()).decode()
+        
+        # Calculate coverage for each class
+        detected_items = []
+        total_pixels = pred_seg.size
+        unique, counts = np.unique(pred_seg, return_counts=True)
+        for label, count in zip(unique, counts):
+            label_name = color_map[label] if color_map and label in color_map else str(label)
+            detected_items.append({
+                "category": label_name,
+                "label": int(label),
+                "coverage": float(count) / total_pixels,
+                "pixel_count": int(count)
+            })
+        logger.info(f"Detected items: {detected_items}")
         
         result = {
-            "message": "Clothing segmentation completed (mock)",
+            "message": "Clothing segmentation completed",
             "image_info": {"width": width, "height": height, "mode": image.mode},
             "segmentation": {
                 "detected_items": detected_items,
                 "segmentation_shape": [height, width],
                 "total_categories": len(detected_items)
-            }
+            },
+            "overlayed_image_base64": overlayed_b64
         }
-        print("[DEBUG] Segmentation result:", result)
+        logger.info(f"Segmentation result: {result}")
         return result
         
     except Exception as e:
         exc_type, exc_value, exc_tb = sys.exc_info()
         tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
-        print(f"[DEBUG] Error in segmentation: {repr(e)}")
-        print(f"[DEBUG] Exception type: {exc_type}")
-        print(f"[DEBUG] Traceback:\n{tb_str}")
+        logger.error(f"Error in segmentation: {repr(e)}")
+        logger.error(f"Exception type: {exc_type}")
+        logger.error(f"Traceback:\n{tb_str}")
         detail_msg = f"{repr(e)} | Traceback: {tb_str}" if str(e) == '' else str(e)
         raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {detail_msg}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    
