@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "shell",
+			"label": "Run FastAPI with Uvicorn (auto-reload)",
+			"command": "uvicorn main:app --host 0.0.0.0 --port 8000 --reload",
+			"group": "build",
+			"problemMatcher": [
+				"$tsc"
+			]
+		}
+	]
+}

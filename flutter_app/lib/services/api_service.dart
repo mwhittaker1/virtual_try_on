@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/selfie_model.dart';
 
 class ApiService {
@@ -94,15 +95,21 @@ class ApiService {
       rethrow;
     }
   }
-    Future<Map<String, dynamic>> segmentClothing(File imageFile) async {
+
+  Future<Map<String, dynamic>> segmentClothing(File imageFile) async {
     try {
       var request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/segment-clothing'),
       );
 
+      // Set the correct content type for the image
       request.files.add(
-        await http.MultipartFile.fromPath('file', imageFile.path),
+        await http.MultipartFile.fromPath(
+          'file',
+          imageFile.path,
+          contentType: MediaType('image', 'jpeg'), // Change to 'png' if needed, or detect dynamically
+        ),
       );
 
       var streamedResponse = await request.send();
@@ -111,10 +118,15 @@ class ApiService {
       if (response.statusCode == 200) {
         return json.decode(response.body);
       } else {
-        throw Exception('Failed to segment clothing: ${response.body}');
+        String errorMsg = 'Failed to segment clothing: ${response.body}';
+        print('[API ERROR] Status: ${response.statusCode}');
+        print('[API ERROR] Response body: ${response.body}');
+        print('[API ERROR] Headers: ${response.headers}');
+        throw Exception(errorMsg);
       }
-    } catch (e) {
-      print('Error segmenting clothing: $e');
+    } catch (e, stack) {
+      print('[API EXCEPTION] Error segmenting clothing: $e');
+      print('[API EXCEPTION] Stack trace: $stack');
       rethrow;
     }
   }

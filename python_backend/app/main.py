@@ -206,20 +206,31 @@ async def analyze_image(file: UploadFile = File(...)):
 @app.post("/segment-clothing")
 async def segment_clothing_endpoint(file: UploadFile = File(...)):
     """Mock clothing segmentation endpoint"""
+    import sys
+    import traceback
     try:
-        print(f"Received file: {file.filename}, content_type: {file.content_type}")
+        print(f"[DEBUG] Received file: {file.filename}, content_type: {file.content_type}")
+        print(f"[DEBUG] Request headers: {file.headers if hasattr(file, 'headers') else 'N/A'}")
         
         # Validate file type
         if not file.content_type.startswith('image/'):
+            print("[DEBUG] Invalid file type received.")
             raise HTTPException(status_code=400, detail="File must be an image")
         
         # Read image to get basic info
         contents = await file.read()
-        print(f"File size: {len(contents)} bytes")
+        print(f"[DEBUG] File size: {len(contents)} bytes")
         
-        image = Image.open(io.BytesIO(contents))
+        try:
+            image = Image.open(io.BytesIO(contents))
+        except Exception as img_err:
+            print(f"[DEBUG] Error opening image: {img_err}")
+            traceback.print_exc()
+            raise HTTPException(status_code=400, detail=f"Invalid image file: {img_err}")
+        
         width, height = image.size
-        print(f"Image dimensions: {width}x{height}")
+        print(f"[DEBUG] Image dimensions: {width}x{height}")
+        print(f"[DEBUG] Image mode: {image.mode}")
         
         # Mock segmentation results
         detected_items = [
@@ -227,6 +238,7 @@ async def segment_clothing_endpoint(file: UploadFile = File(...)):
             {"category": "pants", "label": 6, "coverage": 0.30, "pixel_count": int(width * height * 0.30)},
             {"category": "face", "label": 11, "coverage": 0.08, "pixel_count": int(width * height * 0.08)},
         ]
+        print(f"[DEBUG] Detected items: {detected_items}")
         
         result = {
             "message": "Clothing segmentation completed (mock)",
@@ -237,15 +249,17 @@ async def segment_clothing_endpoint(file: UploadFile = File(...)):
                 "total_categories": len(detected_items)
             }
         }
-        
-        print("Segmentation result:", result)
+        print("[DEBUG] Segmentation result:", result)
         return result
         
     except Exception as e:
-        print(f"Error in segmentation: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {str(e)}")
+        exc_type, exc_value, exc_tb = sys.exc_info()
+        tb_str = ''.join(traceback.format_exception(exc_type, exc_value, exc_tb))
+        print(f"[DEBUG] Error in segmentation: {repr(e)}")
+        print(f"[DEBUG] Exception type: {exc_type}")
+        print(f"[DEBUG] Traceback:\n{tb_str}")
+        detail_msg = f"{repr(e)} | Traceback: {tb_str}" if str(e) == '' else str(e)
+        raise HTTPException(status_code=500, detail=f"Error segmenting clothing: {detail_msg}")
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
