@@ -65,8 +65,6 @@ class _HomeScreenState extends State<HomeScreen> {
           _buildWelcomeSection(),
           const SizedBox(height: 24),
           _buildFeaturesSection(),
-          const SizedBox(height: 24),
-          _buildActionButtons(),
         ],
       ),
     );
@@ -170,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturesSection() {
+    final imageProvider = context.read<ImageProviderService>();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -185,6 +184,14 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Test Photo Gallery',
           description: 'Choose from curated test photos with different poses and lighting conditions',
           color: Colors.blue,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PhotoGalleryScreen(),
+              ),
+            );
+          },
         ),
         const SizedBox(height: 12),
         _buildFeatureCard(
@@ -192,6 +199,9 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'Upload Your Photo',
           description: 'Take a new photo or select from your gallery for virtual try-on',
           color: Colors.green,
+          onTap: () {
+            _showImagePickerDialog();
+          },
         ),
         const SizedBox(height: 12),
         _buildFeatureCard(
@@ -199,6 +209,30 @@ class _HomeScreenState extends State<HomeScreen> {
           title: 'AI Analysis',
           description: 'Get insights about pose quality, lighting, and suitability for virtual try-on',
           color: Colors.orange,
+          onTap: () {
+            File? imageFile;
+            if (imageProvider.selectedTestSelfie != null && 
+                imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
+              imageFile = imageProvider.getImageFile(imageProvider.selectedTestSelfie!.id);
+            } else if (imageProvider.selectedImage != null) {
+              imageFile = imageProvider.selectedImage;
+            }
+            if (imageFile != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SegmentationScreen(imageFile: imageFile!),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please upload a photo first to analyze'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            }
+          },
         ),
       ],
     );
@@ -209,89 +243,54 @@ class _HomeScreenState extends State<HomeScreen> {
     required String title,
     required String description,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildActionButtons() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ElevatedButton.icon(
-          onPressed: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => const PhotoGalleryScreen(),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
               ),
-            );
-          },
-          icon: const Icon(Icons.photo_library),
-          label: const Text('Browse Test Photos'),
-          style: ElevatedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              child: Icon(icon, color: color, size: 24),
             ),
-          ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () {
-            _showImagePickerDialog();
-          },
-          icon: const Icon(Icons.add_a_photo),
-          label: const Text('Upload Your Photo'),
-          style: OutlinedButton.styleFrom(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
