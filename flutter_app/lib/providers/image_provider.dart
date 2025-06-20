@@ -202,7 +202,9 @@ class ImageProviderService extends ChangeNotifier {
 
   // Get image file for uploaded photos
   File? getImageFile(String selfieId) {
-    if (selfieId.startsWith('uploaded_') && _selectedImage != null && _selectedTestSelfie?.id == selfieId) {
+    // For uploaded photos, we need to maintain a map of selfie IDs to files
+    // For now, return the currently selected image if it matches
+    if (selfieId.startsWith('uploaded_') && _selectedTestSelfie?.id == selfieId && _selectedImage != null) {
       return _selectedImage;
     }
     return null;

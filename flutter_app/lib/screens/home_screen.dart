@@ -249,14 +249,15 @@ class _HomeScreenState extends State<HomeScreen> {
             return OutlinedButton.icon(
               onPressed: () {
                 File? imageFile;
-                
-                if (imageProvider.selectedImage != null) {
-                  // Use uploaded image
-                  imageFile = imageProvider.selectedImage;
-                } else if (imageProvider.selectedTestSelfie != null && 
-                          imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
-                  // Use uploaded selfie
+
+                // First check if we have a currently selected uploaded selfie
+                if (imageProvider.selectedTestSelfie != null && 
+                    imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
                   imageFile = imageProvider.getImageFile(imageProvider.selectedTestSelfie!.id);
+                } 
+                // Then check if we have a direct uploaded image
+                else if (imageProvider.selectedImage != null) {
+                  imageFile = imageProvider.selectedImage;
                 }
                 
                 if (imageFile != null) {
@@ -269,8 +270,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Segmentation only works with uploaded photos'),
-                      backgroundColor: Colors.orange,
+                      content: Text('Please upload a photo first to analyze'),
+                      backgroundColor: Colors.blue,
                     ),
                   );
                 }
