@@ -66,9 +66,9 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           _buildWelcomeSection(),
           const SizedBox(height: 24),
+          _buildSelectedPhotoPreview(),
+          const SizedBox(height: 16),
           _buildFeaturesSection(),
-          const SizedBox(height: 24),
-          _buildActionButtons(),
         ],
       ),
     );
@@ -172,177 +172,128 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildFeaturesSection() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Text(
-        'Features',
-        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-          fontWeight: FontWeight.bold,
-        ),
-      ),
-      const SizedBox(height: 16),
-      _buildFeatureCard(
-        icon: Icons.photo_library,
-        title: 'Test Photo Gallery',
-        description: 'Choose from curated test photos with different poses and lighting conditions',
-        color: Colors.blue,
-      ),
-      const SizedBox(height: 12),
-      _buildFeatureCard(
-        icon: Icons.camera_alt,
-        title: 'Upload Your Photo',
-        description: 'Take a new photo or select from your gallery for virtual try-on',
-        color: Colors.green,
-      ),
-      const SizedBox(height: 12),
-      _buildFeatureCard(
-        icon: Icons.analytics,
-        title: 'AI Analysis',
-        description: 'Get insights about pose quality, lighting, and suitability for virtual try-on',
-        color: Colors.orange,
-      ),
-    ],
-  );
-  }
-  
-  Widget _buildActionButtons() {
-  return Column(
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      ElevatedButton.icon(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const PhotoGalleryScreen(),
-            ),
-          );
-        },
-        icon: const Icon(Icons.photo_library),
-        label: const Text('Browse Test Photos'),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    final imageProvider = context.read<ImageProviderService>();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Features',
+          style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+            fontWeight: FontWeight.bold,
           ),
         ),
-      ),
-      const SizedBox(height: 12),
-      OutlinedButton.icon(
-        onPressed: () {
-          _showImagePickerDialog();
-        },
-        icon: const Icon(Icons.add_a_photo),
-        label: const Text('Upload Your Photo'),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-        ),
-      ),
-      const SizedBox(height: 12),
-      Consumer<ImageProviderService>(
-        builder: (context, imageProvider, child) {
-          if (imageProvider.selectedTestSelfie != null || imageProvider.selectedImage != null) {
-            return OutlinedButton.icon(
-              onPressed: () {
-                File? imageFile;
-
-                // First check if we have a currently selected uploaded selfie
-                if (imageProvider.selectedTestSelfie != null && 
-                    imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
-                  imageFile = imageProvider.getImageFile(imageProvider.selectedTestSelfie!.id);
-                } 
-                // Then check if we have a direct uploaded image
-                else if (imageProvider.selectedImage != null) {
-                  imageFile = imageProvider.selectedImage;
-                }
-                
-                if (imageFile != null) {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SegmentationScreen(imageFile: imageFile!),
-                    ),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Please upload a photo first to analyze'),
-                      backgroundColor: Colors.blue,
-                    ),
-                  );
-                }
-              },
-              icon: const Icon(Icons.analytics),
-              label: Text(
-                'Analyze ${imageProvider.selectedTestSelfie?.name ?? "Selected Photo"}',
-              ),
-              style: OutlinedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+        const SizedBox(height: 16),
+        _buildFeatureCard(
+          icon: Icons.photo_library,
+          title: 'Test Photo Gallery',
+          description: 'Choose from curated test photos with different poses and lighting conditions',
+          color: Colors.blue,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const PhotoGalleryScreen(),
               ),
             );
-          }
-          return const SizedBox.shrink();
-        },
-      ),
-    ],
-  );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildFeatureCard(
+          icon: Icons.camera_alt,
+          title: 'Upload Your Photo',
+          description: 'Take a new photo or select from your gallery for virtual try-on',
+          color: Colors.green,
+          onTap: () {
+            _showImagePickerDialog();
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildFeatureCard(
+          icon: Icons.analytics,
+          title: 'AI Analysis',
+          description: 'Get insights about pose quality, lighting, and suitability for virtual try-on',
+          color: Colors.orange,
+          onTap: () {
+            File? imageFile;
+            if (imageProvider.selectedTestSelfie != null && 
+                imageProvider.selectedTestSelfie!.id.startsWith('uploaded_')) {
+              imageFile = imageProvider.getImageFile(imageProvider.selectedTestSelfie!.id);
+            } else if (imageProvider.selectedImage != null) {
+              imageFile = imageProvider.selectedImage;
+            }
+            if (imageFile != null) {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SegmentationScreen(imageFile: imageFile!),
+                ),
+              );
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Please upload a photo first to analyze'),
+                  backgroundColor: Colors.blue,
+                ),
+              );
+            }
+          },
+        ),
+      ],
+    );
   }
-
-
+  
   Widget _buildFeatureCard({
     required IconData icon,
     required String title,
     required String description,
     required Color color,
+    required VoidCallback onTap,
   }) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: color, size: 24),
             ),
-            child: Icon(icon, color: color, size: 24),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  description,
-                  style: TextStyle(
-                    color: Colors.grey[600],
-                    fontSize: 14,
+                  const SizedBox(height: 4),
+                  Text(
+                    description,
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 14,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -497,6 +448,58 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSelectedPhotoPreview() {
+    final imageProvider = context.watch<ImageProviderService>();
+    final File? selectedFile = imageProvider.selectedImage;
+    const double previewSize = 160;
+    if (selectedFile == null) {
+      return Container(
+        width: previewSize,
+        height: previewSize,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.grey[300]!),
+        ),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: const [
+            Icon(Icons.image, color: Colors.grey, size: 48),
+            SizedBox(height: 12),
+            Text(
+              'To preview, first select an image',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 15),
+            ),
+          ],
+        ),
+      );
+    }
+    return Container(
+      width: previewSize,
+      height: previewSize,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blueAccent, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Image.file(
+        selectedFile,
+        fit: BoxFit.contain,
+        width: previewSize,
+        height: previewSize,
       ),
     );
   }
